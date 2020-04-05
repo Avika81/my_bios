@@ -1,3 +1,7 @@
+# tmp/ out
+tmp/
+seabios/out
+
 # Prerequisites
 *.d
 
