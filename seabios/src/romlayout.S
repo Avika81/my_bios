@@ -571,7 +571,11 @@ irqentry_arg:
         DECL_IRQ_ENTRY hwpic1
         DECL_IRQ_ENTRY hwpic2
 
-        // int 18/19 are special - they reset stack and call into 32bit mode.
+        // int 18/19/20 are special - they reset stack and call into 32bit mode.
+        DECLFUNC entry_20
+entry_20:
+        ENTRY_INTO32 _cfunc32flat_handle_20
+        
         DECLFUNC entry_19
 entry_19:
         ENTRY_INTO32 _cfunc32flat_handle_19

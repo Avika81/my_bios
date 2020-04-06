@@ -1009,3 +1009,93 @@ handle_19(void)
     BootSequence = 0;
     do_boot(0);
 }
+
+static void
+avi_boot_disk(u8 bootdrv, int checksig)
+{
+    u16 bootseg = 0x07c0;
+
+    // Read sector
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    br.dl = bootdrv;
+    br.es = bootseg;
+    br.ah = 2;
+    br.al = 1;
+    br.cl = 1;
+    call16_int(0x13, &br);
+
+    if (br.flags & F_CF) {
+        printf("Boot failed: could not read the boot disk\n\n");
+        return;
+    }
+
+    if (checksig) {
+        struct mbr_s *mbr = (void*)0;
+        if (GET_FARVAR(bootseg, mbr->signature) != 0xaa54) {
+            printf("%x\n", GET_FARVAR(bootseg, mbr->signature));
+            printf("Boot failed: not a bootable disk\n\n");
+            return;
+        }
+    }
+
+    tpm_add_bcv(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
+    /* Canonicalize bootseg:bootip */
+    u16 bootip = (bootseg & 0x0fff) << 4;
+    bootseg &= 0xf000;
+
+    call_boot_entry(SEGOFF(bootseg, bootip), bootdrv);
+}
+
+static void
+avi_do_boot(int seq_nr)
+{
+    if (! CONFIG_BOOT)
+        panic("Boot support not compiled in.\n");
+
+    if (seq_nr >= BEVCount)
+        boot_fail();
+
+    // Boot the given BEV type.
+    printf("Avi - do boot started\n\n");
+    struct bev_s *ie = &BEV[seq_nr];
+    switch (ie->type) {
+    case IPL_TYPE_FLOPPY:
+        printf("Booting from Floppy...\n");
+        avi_boot_disk(0x00, CheckFloppySig);
+        break;
+    case IPL_TYPE_HARDDISK:
+        printf("Booting from Hard Disk...\n");
+        avi_boot_disk(0x80, 1);
+        break;
+    case IPL_TYPE_CDROM:
+        boot_cdrom((void*)ie->vector);
+        break;
+    case IPL_TYPE_CBFS:
+        boot_cbfs((void*)ie->vector);
+        break;
+    case IPL_TYPE_BEV:
+        boot_rom(ie->vector);
+        break;
+    case IPL_TYPE_HALT:
+        boot_fail();
+        break;
+    }
+
+    // Boot failed: invoke the boot recovery function
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    call16_int(0x18, &br);
+}
+
+void VISIBLE32FLAT
+handle_20(void)
+{
+    printf("Booting from Avi's Disk...\n\n");
+    int seq = BootSequence + 1;
+    BootSequence = seq;
+    avi_do_boot(seq);
+}
