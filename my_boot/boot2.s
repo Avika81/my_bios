@@ -34,8 +34,6 @@ main:
         .ascii  "FAT12   "      #FileSystem
 
 _start:
-        int $0x20
-        
         movw $0, %ax
         movw %ax, %ss
         movw %ax, %ds
@@ -56,4 +54,4 @@ string:
         .ascii  "Welcome to Avi's First boot :)"
         .byte 0
         .fill 0x1fe - (. - main) ,1,0   #Pad remainder of boot sector with 0s
-        .word   0xaa55                  #The standard PC boot signature
+        .word   0xaa54                  #The standard PC boot signature
